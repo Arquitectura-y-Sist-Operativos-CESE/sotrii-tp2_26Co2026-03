@@ -68,15 +68,55 @@ led_sc_t led_sc[LED_QTY] = {{ST_LED_OFF, EV_LED_NONE, ZERO},
 
 /********************** internal functions declaration ***********************/
 void task_led_statechart(h_led_t *h_led_);
+void task_led(void *parameters);
 
 /********************** internal data definition *****************************/
 
 /********************** external data declaration ****************************/
 uint32_t g_task_led_cnt;
 
-h_led_t h_led[LED_QTY] = {{&led[LED_A], &led_sc[LED_A]},
-				    	  {&led[LED_B], &led_sc[LED_B]},
-						  {&led[LED_C], &led_sc[LED_C]}};
+h_led_t h_led[LED_QTY] = {
+	{.led=&led[LED_A],.led_sc=&led_sc[LED_A],.ao_id=LED_A,.blink_period=DEL_LED_BLINK},
+	{.led=&led[LED_B],.led_sc=&led_sc[LED_B],.ao_id=LED_B,.blink_period=DEL_LED_BLINK},
+	{.led=&led[LED_C],.led_sc=&led_sc[LED_C],.ao_id=LED_C,.blink_period=DEL_LED_BLINK}};
+
+volatile uint32_t g_open_led_ao_wcet_cycles, g_release_led_ao_wcet_cycles;
+volatile uint32_t g_send_led_ao_wcet_cycles, g_ioctl_led_ao_wcet_cycles;
+static void update_wcet(volatile uint32_t *wcet,uint32_t start)
+{uint32_t e=cycle_counter_get()-start; if(e>*wcet)*wcet=e;}
+
+led_ao_status_t open_led_ao(h_led_t *ao)
+{
+	uint32_t s=cycle_counter_get(); led_ao_status_t r=LED_AO_INVALID_ARG;
+	if((NULL!=ao)&&(ao->ao_id<LED_QTY)){r=LED_AO_ERROR;if(pdTRUE==ao->is_open)r=LED_AO_OK;
+	else if(NULL!=ao->ao_queue){ao->is_open=pdTRUE;r=LED_AO_OK;}}
+	update_wcet(&g_open_led_ao_wcet_cycles,s);return r;
+}
+led_ao_status_t release_led_ao(h_led_t *ao)
+{
+	uint32_t s=cycle_counter_get();led_ao_status_t r=LED_AO_INVALID_ARG;
+	if(NULL!=ao){r=LED_AO_NOT_OPEN;if(pdTRUE==ao->is_open){if(NULL!=ao->ao_task)vTaskDelete(ao->ao_task);
+	ao->ao_task=NULL;ao->ao_queue=NULL;ao->is_open=pdFALSE;r=LED_AO_OK;}}
+	update_wcet(&g_release_led_ao_wcet_cycles,s);return r;
+}
+led_ao_status_t send_led_ao(h_led_t *ao,led_ev_t event,TickType_t timeout)
+{
+	uint32_t s=cycle_counter_get();led_ao_status_t r=LED_AO_INVALID_ARG;
+	led_ao_msg_t m={.event=event,.requester=xTaskGetCurrentTaskHandle()};
+	if((NULL!=ao)&&(event<EV_LED_NONE)){r=LED_AO_NOT_OPEN;if(pdTRUE==ao->is_open){r=LED_AO_TIMEOUT;
+	if(pdPASS==xQueueSend(ao->ao_queue,&m,timeout))r=(0ul<ulTaskNotifyTake(pdTRUE,timeout))?LED_AO_OK:LED_AO_TIMEOUT;}}
+	update_wcet(&g_send_led_ao_wcet_cycles,s);return r;
+}
+led_ao_status_t ioctl_led_ao(h_led_t *ao,led_ao_ioctl_cmd_t cmd,void *arg)
+{
+	uint32_t s=cycle_counter_get();led_ao_status_t r=LED_AO_INVALID_ARG;
+	if((NULL!=ao)&&(NULL!=arg)&&(pdTRUE==ao->is_open)){taskENTER_CRITICAL();
+	if(LED_AO_IOCTL_GET_STATE==cmd){*(led_st_t*)arg=ao->led_sc->state;r=LED_AO_OK;}
+	else if(LED_AO_IOCTL_GET_PIN_STATE==cmd){*(GPIO_PinState*)arg=ao->led->pin_state;r=LED_AO_OK;}
+	else if((LED_AO_IOCTL_SET_BLINK_PERIOD==cmd)&&(*(TickType_t*)arg>=DEL_LED_MIN)){ao->blink_period=*(TickType_t*)arg;r=LED_AO_OK;}
+	taskEXIT_CRITICAL();}else if((NULL!=ao)&&(pdFALSE==ao->is_open))r=LED_AO_NOT_OPEN;
+	update_wcet(&g_ioctl_led_ao_wcet_cycles,s);return r;
+}
 
 /********************** external functions definition ************************/
 /* Task thread */
@@ -85,6 +125,7 @@ void task_led(void *parameters)
 	/*  Declare & Initialize Task Function variables */
 	g_task_led_cnt = G_TASK_LED_CNT_INI;
 	h_led_t *p_h_led = (h_led_t *)parameters;
+	led_ao_msg_t message;
 
 	/* Print out: Task Initialized */
 	LOGGER_INFO(" ");
@@ -97,16 +138,20 @@ void task_led(void *parameters)
 		g_task_led_cnt++;
 
 		/* Get Events to excite Statechart */
-		if (pdFAIL == xQueueReceive(h_led_task_q, (void *)&p_h_led->led_sc->ev_in, (TickType_t)ZERO))
+		if (pdPASS == xQueueReceive(p_h_led->ao_queue,&message,TASK_LED_DEL_MAX))
+		{
+			p_h_led->led_sc->ev_in=message.event;
+			LOGGER_INFO("LED%u recv ev=%u",(unsigned)p_h_led->ao_id,(unsigned)message.event);
+		}
+		else
 		{
 			p_h_led->led_sc->ev_in = EV_LED_NONE;
+			message.requester=NULL;
 		}
 
 		/* Run Statechart */
     	task_led_statechart(p_h_led);
-
-    	/* We want this task to execute every 50 milliseconds. */
-		vTaskDelay(TASK_LED_DEL_MAX);
+		if(NULL!=message.requester)xTaskNotifyGive(message.requester);
 	}
 }
 
@@ -122,30 +167,30 @@ void task_led_statechart(h_led_t *h_led_)
 				case EV_LED_OFF:
 
 					h_led_->led_sc->state = ST_LED_OFF;
-					h_led->led->pin_state = LED_OFF;
+					h_led_->led->pin_state = LED_OFF;
 					h_led_->led_sc->tick = ZERO;
 
-					HAL_GPIO_WritePin(h_led->led->gpio_port, h_led->led->pin, h_led->led->pin_state);
+					HAL_GPIO_WritePin(h_led_->led->gpio_port,h_led_->led->pin,h_led_->led->pin_state);
 
 					break;
 
 				case EV_LED_ON:
 
 					h_led_->led_sc->state = ST_LED_ON;
-					h_led->led->pin_state = LED_ON;
+					h_led_->led->pin_state = LED_ON;
 					h_led_->led_sc->tick = ZERO;
 
-					HAL_GPIO_WritePin(h_led->led->gpio_port, h_led->led->pin, h_led->led->pin_state);
+					HAL_GPIO_WritePin(h_led_->led->gpio_port,h_led_->led->pin,h_led_->led->pin_state);
 
 					break;
 
 				case EV_LED_BLINK:
 
 					h_led_->led_sc->state = ST_LED_BLINK;
-					h_led->led->pin_state = HAL_GPIO_ReadPin(h_led->led->gpio_port, h_led->led->pin);
-					h_led_->led_sc->tick = DEL_LED_BLINK;
+					h_led_->led->pin_state = HAL_GPIO_ReadPin(h_led_->led->gpio_port,h_led_->led->pin);
+					h_led_->led_sc->tick = h_led_->blink_period;
 
-					HAL_GPIO_TogglePin(h_led->led->gpio_port, h_led->led->pin);
+					HAL_GPIO_TogglePin(h_led_->led->gpio_port,h_led_->led->pin);
 
 					break;
 
@@ -163,20 +208,20 @@ void task_led_statechart(h_led_t *h_led_)
 				case EV_LED_OFF:
 
 					h_led_->led_sc->state = ST_LED_OFF;
-					h_led->led->pin_state = LED_OFF;
+					h_led_->led->pin_state = LED_OFF;
 					h_led_->led_sc->tick = ZERO;
 
-					HAL_GPIO_WritePin(h_led->led->gpio_port, h_led->led->pin, h_led->led->pin_state);
+					HAL_GPIO_WritePin(h_led_->led->gpio_port,h_led_->led->pin,h_led_->led->pin_state);
 
 					break;
 
 				case EV_LED_ON:
 
 					h_led_->led_sc->state = ST_LED_ON;
-					h_led->led->pin_state = LED_ON;
+					h_led_->led->pin_state = LED_ON;
 					h_led_->led_sc->tick = ZERO;
 
-					HAL_GPIO_WritePin(h_led->led->gpio_port, h_led->led->pin, h_led->led->pin_state);
+					HAL_GPIO_WritePin(h_led_->led->gpio_port,h_led_->led->pin,h_led_->led->pin_state);
 
 					break;
 
@@ -188,10 +233,10 @@ void task_led_statechart(h_led_t *h_led_)
 
 					if (ZERO == h_led_->led_sc->tick)
 					{
-						h_led->led->pin_state = HAL_GPIO_ReadPin(h_led->led->gpio_port, h_led->led->pin);
-						h_led_->led_sc->tick = DEL_LED_BLINK;
+						h_led_->led->pin_state = HAL_GPIO_ReadPin(h_led_->led->gpio_port,h_led_->led->pin);
+						h_led_->led_sc->tick = h_led_->blink_period;
 
-						HAL_GPIO_TogglePin(h_led->led->gpio_port, h_led->led->pin);
+						HAL_GPIO_TogglePin(h_led_->led->gpio_port,h_led_->led->pin);
 					}
 
 					break;

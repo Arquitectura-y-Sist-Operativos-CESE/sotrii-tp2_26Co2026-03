@@ -57,6 +57,12 @@ typedef enum sys_st {ST_SYS_IDLE,
 					 ST_SYS_ACTIVE_0,
 					 ST_SYS_ACTIVE_1} sys_st_t;
 
+typedef enum {SYS_AO_0, SYS_AO_QTY} sys_ao_id_t;
+typedef enum {SYS_AO_IOCTL_GET_STATE, SYS_AO_IOCTL_GET_TIME_A,
+	SYS_AO_IOCTL_GET_TIME_B} sys_ao_ioctl_cmd_t;
+typedef enum {SYS_AO_OK = 0, SYS_AO_ERROR = -1, SYS_AO_TIMEOUT = -2, SYS_AO_NOT_OPEN = -3,
+	SYS_AO_INVALID_ARG = -4} sys_ao_status_t;
+
 /********************** typedef **********************************************/
 /* Structure of Statechart */
 typedef struct
@@ -72,6 +78,13 @@ typedef struct
 typedef struct
 {
 	sys_sc_t *	sys_sc;
+	sys_ao_id_t ao_id;
+	QueueHandle_t ao_queue;
+	TaskHandle_t ao_task;
+	TickType_t operation_time[BTN_QTY];
+	TickType_t operation_remaining;
+	btn_id_t active_button;
+	BaseType_t is_open;
 } h_sys_t;
 
 /********************** external data declaration ****************************/

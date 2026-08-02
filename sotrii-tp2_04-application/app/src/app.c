@@ -62,10 +62,10 @@
 #define G_APP_STACK_OVERFLOW_CNT_INI	0ul
 
 #define QUEUE_LENGTH_       (5)
-#define QUEUE_ITEM_SIZE_    (sizeof(sys_ev_t))
+#define QUEUE_ITEM_SIZE_    (sizeof(btn_ao_msg_t))
 
 #define QUEUE_LENGTH__		(1)
-#define QUEUE_ITEM_SIZE__	(sizeof(led_ev_t))
+#define QUEUE_ITEM_SIZE__	(sizeof(led_ao_msg_t))
 
 /********************** internal data declaration ****************************/
 
@@ -84,6 +84,8 @@ uint32_t g_app_stack_overflow_cnt;
 /* Declare a variable of type QueueHandle_t. This is used to reference queues*/
 QueueHandle_t h_sys_task_q;
 QueueHandle_t h_led_task_q;
+QueueHandle_t h_led_b_task_q;
+QueueHandle_t h_led_c_task_q;
 
 /* Declare a variable of type SemaphoreHandle_t (binary or counting) or mutex.
  * This is used to reference the semaphore that is used to synchronize a thread
@@ -95,6 +97,9 @@ TaskHandle_t h_task_b;
 TaskHandle_t h_task_btn;
 TaskHandle_t h_task_sys;
 TaskHandle_t h_task_led;
+TaskHandle_t h_task_led_b;
+TaskHandle_t h_task_led_c;
+TaskHandle_t h_task_btn_b;
 
 /********************** external functions definition ************************/
 void app_init(void)
@@ -122,10 +127,28 @@ void app_init(void)
 	h_sys_task_q = xQueueCreate(QUEUE_LENGTH_, QUEUE_ITEM_SIZE_);
 	configASSERT(NULL != h_sys_task_q);
 	vQueueAddToRegistry(h_sys_task_q, "Queue BTN-> SYS");
+	h_sys.ao_queue=h_sys_task_q;
+	h_btn[BTN_A].ao_queue=h_sys_task_q;
+	h_btn[BTN_B].ao_queue=h_sys_task_q;
+	configASSERT(SYS_AO_OK==open_sys_ao(&h_sys));
+	configASSERT(BTN_AO_OK==open_btn_ao(&h_btn[BTN_A]));
+	configASSERT(BTN_AO_OK==open_btn_ao(&h_btn[BTN_B]));
 
 	h_led_task_q = xQueueCreate(QUEUE_LENGTH__, QUEUE_ITEM_SIZE__);
 	configASSERT(NULL != h_led_task_q);
 	vQueueAddToRegistry(h_led_task_q, "Queue SYS-> LED");
+	h_led_b_task_q=xQueueCreate(QUEUE_LENGTH__,QUEUE_ITEM_SIZE__);
+	configASSERT(NULL!=h_led_b_task_q);
+	vQueueAddToRegistry(h_led_b_task_q,"Queue SYS-> LED B");
+	h_led_c_task_q=xQueueCreate(QUEUE_LENGTH__,QUEUE_ITEM_SIZE__);
+	configASSERT(NULL!=h_led_c_task_q);
+	vQueueAddToRegistry(h_led_c_task_q,"Queue SYS-> LED C");
+	h_led[LED_A].ao_queue=h_led_task_q;
+	h_led[LED_B].ao_queue=h_led_b_task_q;
+	h_led[LED_C].ao_queue=h_led_c_task_q;
+	configASSERT(LED_AO_OK==open_led_ao(&h_led[LED_A]));
+	configASSERT(LED_AO_OK==open_led_ao(&h_led[LED_B]));
+	configASSERT(LED_AO_OK==open_led_ao(&h_led[LED_C]));
 
 	/* The semaphore is created in the 'empty' state, meaning the semaphore
 	 * must first be given using the xSemaphoreGive() API function before it can
@@ -166,6 +189,17 @@ void app_init(void)
 
     /* Check the thread was created successfully. */
     configASSERT(pdPASS == ret);
+	h_led[LED_A].ao_task=h_task_led;
+
+	ret=xTaskCreate(task_led,"Task Led B   ",configMINIMAL_STACK_SIZE,
+			(void*)&h_led[LED_B],tskIDLE_PRIORITY+1ul,&h_task_led_b);
+	configASSERT(pdPASS==ret);
+	h_led[LED_B].ao_task=h_task_led_b;
+
+	ret=xTaskCreate(task_led,"Task Led C   ",configMINIMAL_STACK_SIZE,
+			(void*)&h_led[LED_C],tskIDLE_PRIORITY+1ul,&h_task_led_c);
+	configASSERT(pdPASS==ret);
+	h_led[LED_C].ao_task=h_task_led_c;
 
     /* Task System thread at priority 1 */
     ret = xTaskCreate(task_sys,							/* Pointer to the function thats implement the task. */
@@ -177,6 +211,7 @@ void app_init(void)
 
     /* Check the thread was created successfully. */
     configASSERT(pdPASS == ret);
+	h_sys.ao_task=h_task_sys;
 
     /* Task Button thread at priority 1 */
     ret = xTaskCreate(task_btn,							/* Pointer to the function thats implement the task. */
@@ -188,6 +223,12 @@ void app_init(void)
 
     /* Check the thread was created successfully. */
     configASSERT(pdPASS == ret);
+	h_btn[BTN_A].ao_task=h_task_btn;
+
+	ret=xTaskCreate(task_btn,"Task Btn B   ",configMINIMAL_STACK_SIZE,
+			(void*)&h_btn[BTN_B],tskIDLE_PRIORITY+1ul,&h_task_btn_b);
+	configASSERT(pdPASS==ret);
+	h_btn[BTN_B].ao_task=h_task_btn_b;
 
     /* Total amount of heap space that remains unallocated. Is also available
      * with xFreeBytesRemaining variable for heap management schemes 2 to 5.

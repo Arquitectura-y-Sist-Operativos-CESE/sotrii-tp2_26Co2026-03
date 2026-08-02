@@ -51,9 +51,19 @@ extern "C" {
 
 /********************** external data declaration ****************************/
 extern h_sys_t h_sys;
+extern volatile uint32_t g_open_sys_ao_wcet_cycles;
+extern volatile uint32_t g_release_sys_ao_wcet_cycles;
+extern volatile uint32_t g_send_sys_ao_wcet_cycles;
+extern volatile uint32_t g_ioctl_sys_ao_wcet_cycles;
 
 /********************** external functions declaration ***********************/
 extern void task_sys(void *parameters);
+extern sys_ao_status_t open_sys_ao(h_sys_t *ao);
+extern sys_ao_status_t release_sys_ao(h_sys_t *ao);
+extern sys_ao_status_t send_sys_ao(h_sys_t *ao, btn_id_t button_id,
+		btn_ev_t event, TickType_t time, TickType_t timeout);
+extern sys_ao_status_t ioctl_sys_ao(h_sys_t *ao,
+		sys_ao_ioctl_cmd_t command, void *argument);
 
 /********************** End of CPP guard *************************************/
 #ifdef __cplusplus

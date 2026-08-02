@@ -58,6 +58,19 @@ typedef enum btn_ev {EV_BTN_UP,
 typedef enum btn_st {ST_BTN_UP,
 					 ST_BTN_DOWN} btn_st_t;
 
+typedef enum {BTN_AO_IOCTL_GET_STATE, BTN_AO_IOCTL_GET_PIN_STATE,
+	BTN_AO_IOCTL_GET_ELAPSED_TIME} btn_ao_ioctl_cmd_t;
+typedef enum {BTN_AO_OK = 0, BTN_AO_ERROR = -1, BTN_AO_TIMEOUT = -2,
+	BTN_AO_NOT_OPEN = -3, BTN_AO_INVALID_ARG = -4} btn_ao_status_t;
+
+typedef struct
+{
+	btn_id_t button_id;
+	btn_ev_t event;
+	TickType_t time;
+	TaskHandle_t requester;
+} btn_ao_msg_t;
+
 /********************** typedef **********************************************/
 /* Structure of Button */
 typedef struct
@@ -83,6 +96,10 @@ typedef struct
 {
 	btn_t *			btn;
 	btn_sc_t *		btn_sc;
+	btn_id_t ao_id;
+	QueueHandle_t ao_queue;
+	TaskHandle_t ao_task;
+	BaseType_t is_open;
 } h_btn_t;
 
 /********************** external data declaration ****************************/

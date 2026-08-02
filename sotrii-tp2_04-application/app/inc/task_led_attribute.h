@@ -63,6 +63,12 @@ typedef enum led_st {ST_LED_OFF,
 					 ST_LED_ON,
 					 ST_LED_BLINK} led_st_t;
 
+typedef enum {LED_AO_IOCTL_GET_STATE, LED_AO_IOCTL_GET_PIN_STATE,
+	LED_AO_IOCTL_SET_BLINK_PERIOD} led_ao_ioctl_cmd_t;
+typedef enum {LED_AO_OK = 0, LED_AO_ERROR = -1, LED_AO_TIMEOUT = -2,
+	LED_AO_NOT_OPEN = -3, LED_AO_INVALID_ARG = -4} led_ao_status_t;
+typedef struct {led_ev_t event; TaskHandle_t requester;} led_ao_msg_t;
+
 /********************** typedef **********************************************/
 /* Structure of Leds */
 typedef struct
@@ -86,6 +92,11 @@ typedef struct
 {
 	led_t *		led;
 	led_sc_t *	led_sc;
+	led_id_t ao_id;
+	QueueHandle_t ao_queue;
+	TaskHandle_t ao_task;
+	TickType_t blink_period;
+	BaseType_t is_open;
 } h_led_t;
 
 /********************** external data declaration ****************************/
