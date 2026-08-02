@@ -47,6 +47,7 @@
 #include "board.h"
 #include "app.h"
 #include "task_sys_attribute.h"
+#include "task_led.h"
 
 /********************** macros and definitions *******************************/
 #define G_TASK_SYS_CNT_INI	0ul
@@ -62,6 +63,17 @@ sys_sc_t sys_sc = {ST_SYS_IDLE, EV_SYS_OFF, ZERO, EV_SYS_NONE, ZERO};
 
 /********************** internal functions declaration ***********************/
 void task_sys_statechart(h_sys_t *h_sys_);
+
+static void task_sys_send_led(h_sys_t *h_sys_)
+{
+	led_ao_status_t status;
+
+	LOGGER_INFO("SYS->LED send ev=%u", (unsigned int)h_sys_->sys_sc->ev_out);
+	status = send_led_ao(&h_led[LED_A],
+			(led_ev_t)h_sys_->sys_sc->ev_out, portMAX_DELAY);
+	LOGGER_INFO("SYS<-LED confirm ev=%u result=%d",
+			(unsigned int)h_sys_->sys_sc->ev_out, (int)status);
+}
 
 /********************** internal data definition *****************************/
 
@@ -93,6 +105,11 @@ void task_sys(void *parameters)
 		{
 			p_h_sys->sys_sc->ev_in = EV_SYS_NONE;
 		}
+		else
+		{
+			LOGGER_INFO("SYS received ev=%u",
+					(unsigned int)p_h_sys->sys_sc->ev_in);
+		}
 
 		/* Run Statechart */
     	task_sys_statechart(p_h_sys);
@@ -114,7 +131,7 @@ void task_sys_statechart(h_sys_t *h_sys_)
 				h_sys_->sys_sc->tick = ZERO;
 				h_sys_->sys_sc->ev_out = EV_SYS_ON;
 
-				xQueueSend(h_led_task_q, (void *)&h_sys_->sys_sc->ev_out, (TickType_t)ZERO);
+				task_sys_send_led(h_sys_);
 			}
 			else
 			{
@@ -131,7 +148,7 @@ void task_sys_statechart(h_sys_t *h_sys_)
 				h_sys_->sys_sc->tick = ZERO;
 				h_sys_->sys_sc->ev_out = EV_SYS_BLINK;
 
-				xQueueSend(h_led_task_q, (void *)&h_sys_->sys_sc->ev_out, (TickType_t)ZERO);
+				task_sys_send_led(h_sys_);
 			}
 			else
 			{
@@ -149,7 +166,7 @@ void task_sys_statechart(h_sys_t *h_sys_)
 				h_sys_->sys_sc->tick = ZERO;
 				h_sys_->sys_sc->ev_out = EV_SYS_OFF;
 
-				xQueueSend(h_led_task_q, (void *)&h_sys_->sys_sc->ev_out, ZERO);
+				task_sys_send_led(h_sys_);
 			}
 			else
 			{

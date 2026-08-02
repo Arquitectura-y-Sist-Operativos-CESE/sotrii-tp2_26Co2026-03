@@ -51,9 +51,17 @@ extern "C" {
 
 /********************** external data declaration ****************************/
 extern h_led_t h_led[LED_QTY];
+extern volatile uint32_t g_open_led_ao_wcet_cycles;
+extern volatile uint32_t g_release_led_ao_wcet_cycles;
+extern volatile uint32_t g_send_led_ao_wcet_cycles;
+extern volatile uint32_t g_ioctl_led_ao_wcet_cycles;
 
 /********************** external functions declaration ***********************/
 extern void task_led(void *parameters);
+extern led_ao_status_t open_led_ao(h_led_t *ao);
+extern led_ao_status_t release_led_ao(h_led_t *ao);
+extern led_ao_status_t send_led_ao(h_led_t *ao, led_ev_t event, TickType_t timeout);
+extern led_ao_status_t ioctl_led_ao(h_led_t *ao, led_ao_ioctl_cmd_t command, void *argument);
 
 /********************** End of CPP guard *************************************/
 #ifdef __cplusplus
