@@ -47,6 +47,7 @@
 #include "board.h"
 #include "app.h"
 #include "task_btn_attribute.h"
+#include "task_sys.h"
 
 /********************** macros and definitions *******************************/
 #define G_TASK_BTN_CNT_INI	0ul
@@ -125,7 +126,14 @@ void task_btn_statechart(h_btn_t *h_btn_)
 				h_btn_->btn_sc->tick_out = h_btn_->btn_sc->tick;
 				h_btn_->btn_sc->tick = ZERO;
 
-				xQueueSend(h_sys_task_q, (void *)&h_btn_->btn_sc->ev_out, (TickType_t)ZERO);
+				LOGGER_INFO("BTN->SYS send ev=%u time=%lu",
+						(unsigned int)h_btn_->btn_sc->ev_out,
+						(unsigned long)h_btn_->btn_sc->tick_out);
+				sys_ao_status_t status = send_sys_ao(&h_sys,
+						(sys_ev_t)h_btn_->btn_sc->ev_out,
+						h_btn_->btn_sc->tick_out, portMAX_DELAY);
+				LOGGER_INFO("BTN<-SYS confirm ev=%u result=%d",
+						(unsigned int)h_btn_->btn_sc->ev_out, (int)status);
 			}
 			else
 			{
@@ -143,7 +151,14 @@ void task_btn_statechart(h_btn_t *h_btn_)
 				h_btn_->btn_sc->tick_out = h_btn_->btn_sc->tick;
 				h_btn_->btn_sc->tick = ZERO;
 
-				xQueueSend(h_sys_task_q, (void *)&h_btn_->btn_sc->ev_out, (TickType_t)ZERO);
+				LOGGER_INFO("BTN->SYS send ev=%u time=%lu",
+						(unsigned int)h_btn_->btn_sc->ev_out,
+						(unsigned long)h_btn_->btn_sc->tick_out);
+				sys_ao_status_t status = send_sys_ao(&h_sys,
+						(sys_ev_t)h_btn_->btn_sc->ev_out,
+						h_btn_->btn_sc->tick_out, portMAX_DELAY);
+				LOGGER_INFO("BTN<-SYS confirm ev=%u result=%d",
+						(unsigned int)h_btn_->btn_sc->ev_out, (int)status);
 			}
 			else
 			{

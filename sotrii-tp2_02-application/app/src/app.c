@@ -62,7 +62,7 @@
 #define G_APP_STACK_OVERFLOW_CNT_INI	0ul
 
 #define QUEUE_LENGTH_       (5)
-#define QUEUE_ITEM_SIZE_    (sizeof(sys_ev_t))
+#define QUEUE_ITEM_SIZE_    (sizeof(sys_ao_msg_t))
 
 #define QUEUE_LENGTH__		(1)
 #define QUEUE_ITEM_SIZE__	(sizeof(led_ev_t))
@@ -123,6 +123,10 @@ void app_init(void)
 	configASSERT(NULL != h_sys_task_q);
 	vQueueAddToRegistry(h_sys_task_q, "Queue BTN-> SYS");
 
+	/* Associate the queue created by the application with the SYS AO. */
+	h_sys.ao_queue = h_sys_task_q;
+	configASSERT(SYS_AO_OK == open_sys_ao(&h_sys));
+
 	h_led_task_q = xQueueCreate(QUEUE_LENGTH__, QUEUE_ITEM_SIZE__);
 	configASSERT(NULL != h_led_task_q);
 	vQueueAddToRegistry(h_led_task_q, "Queue SYS-> LED");
@@ -177,6 +181,7 @@ void app_init(void)
 
     /* Check the thread was created successfully. */
     configASSERT(pdPASS == ret);
+	h_sys.ao_task = h_task_sys;
 
     /* Task Button thread at priority 1 */
     ret = xTaskCreate(task_btn,							/* Pointer to the function thats implement the task. */
