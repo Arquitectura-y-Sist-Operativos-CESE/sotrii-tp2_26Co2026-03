@@ -62,7 +62,7 @@
 #define G_APP_STACK_OVERFLOW_CNT_INI	0ul
 
 #define QUEUE_LENGTH_       (5)
-#define QUEUE_ITEM_SIZE_    (sizeof(sys_ev_t))
+#define QUEUE_ITEM_SIZE_    (sizeof(btn_ao_msg_t))
 
 #define QUEUE_LENGTH__		(1)
 #define QUEUE_ITEM_SIZE__	(sizeof(led_ev_t))
@@ -122,6 +122,10 @@ void app_init(void)
 	h_sys_task_q = xQueueCreate(QUEUE_LENGTH_, QUEUE_ITEM_SIZE_);
 	configASSERT(NULL != h_sys_task_q);
 	vQueueAddToRegistry(h_sys_task_q, "Queue BTN-> SYS");
+
+	/* Associate the queue created by the application with the BTN AO. */
+	h_btn[BTN_A].ao_queue = h_sys_task_q;
+	configASSERT(BTN_AO_OK == open_btn_ao(&h_btn[BTN_A]));
 
 	h_led_task_q = xQueueCreate(QUEUE_LENGTH__, QUEUE_ITEM_SIZE__);
 	configASSERT(NULL != h_led_task_q);
@@ -188,6 +192,7 @@ void app_init(void)
 
     /* Check the thread was created successfully. */
     configASSERT(pdPASS == ret);
+	h_btn[BTN_A].ao_task = h_task_btn;
 
     /* Total amount of heap space that remains unallocated. Is also available
      * with xFreeBytesRemaining variable for heap management schemes 2 to 5.

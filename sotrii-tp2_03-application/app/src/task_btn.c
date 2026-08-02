@@ -65,14 +65,141 @@ btn_sc_t btn_sc[BTN_QTY] = {{ST_BTN_UP, EV_BTN_UP, ZERO, EV_BTN_UP, ZERO},
 
 /********************** internal functions declaration ***********************/
 void task_btn_statechart(h_btn_t *h_btn_);
+void task_btn(void *parameters);
 
 /********************** internal data definition *****************************/
 
 /********************** external data declaration ****************************/
 uint32_t g_task_btn_cnt;
 
-h_btn_t	h_btn[BTN_QTY] = {{&btn[BTN_A], &btn_sc[BTN_A]},
-						  {&btn[BTN_B], &btn_sc[BTN_B]}};
+h_btn_t	h_btn[BTN_QTY] = {
+	{.btn = &btn[BTN_A], .btn_sc = &btn_sc[BTN_A], .ao_id = BTN_A},
+	{.btn = &btn[BTN_B], .btn_sc = &btn_sc[BTN_B], .ao_id = BTN_B}};
+
+volatile uint32_t g_open_btn_ao_wcet_cycles;
+volatile uint32_t g_release_btn_ao_wcet_cycles;
+volatile uint32_t g_send_btn_ao_wcet_cycles;
+volatile uint32_t g_ioctl_btn_ao_wcet_cycles;
+
+static void update_wcet(volatile uint32_t *wcet, uint32_t start)
+{
+	uint32_t elapsed = cycle_counter_get() - start;
+	if (elapsed > *wcet)
+	{
+		*wcet = elapsed;
+	}
+}
+
+btn_ao_status_t open_btn_ao(h_btn_t *ao)
+{
+	uint32_t start = cycle_counter_get();
+	btn_ao_status_t status = BTN_AO_INVALID_ARG;
+
+	if ((NULL != ao) && (ao->ao_id < BTN_QTY))
+	{
+		status = BTN_AO_ERROR;
+		if (pdTRUE == ao->is_open)
+		{
+			status = BTN_AO_OK;
+		}
+		else if (NULL != ao->ao_queue)
+		{
+			ao->is_open = pdTRUE;
+			status = BTN_AO_OK;
+		}
+	}
+	update_wcet(&g_open_btn_ao_wcet_cycles, start);
+	return status;
+}
+
+btn_ao_status_t release_btn_ao(h_btn_t *ao)
+{
+	uint32_t start = cycle_counter_get();
+	btn_ao_status_t status = BTN_AO_INVALID_ARG;
+
+	if (NULL != ao)
+	{
+		status = BTN_AO_NOT_OPEN;
+		if (pdTRUE == ao->is_open)
+		{
+			if (NULL != ao->ao_task)
+			{
+				vTaskDelete(ao->ao_task);
+			}
+			vQueueUnregisterQueue(ao->ao_queue);
+			vQueueDelete(ao->ao_queue);
+			ao->ao_task = NULL;
+			ao->ao_queue = NULL;
+			ao->is_open = pdFALSE;
+			status = BTN_AO_OK;
+		}
+	}
+	update_wcet(&g_release_btn_ao_wcet_cycles, start);
+	return status;
+}
+
+btn_ao_status_t send_btn_ao(h_btn_t *ao, btn_ev_t event,
+		TickType_t time, TickType_t timeout)
+{
+	uint32_t start = cycle_counter_get();
+	btn_ao_status_t status = BTN_AO_INVALID_ARG;
+	btn_ao_msg_t message = {
+		.event = event,
+		.time = time,
+		.requester = xTaskGetCurrentTaskHandle()};
+
+	if ((NULL != ao) && (event <= EV_BTN_DOWN))
+	{
+		status = BTN_AO_NOT_OPEN;
+		if (pdTRUE == ao->is_open)
+		{
+			status = BTN_AO_TIMEOUT;
+			if (pdPASS == xQueueSend(ao->ao_queue, &message, timeout))
+			{
+				status = (0ul < ulTaskNotifyTake(pdTRUE, timeout)) ?
+						BTN_AO_OK : BTN_AO_TIMEOUT;
+			}
+		}
+	}
+	update_wcet(&g_send_btn_ao_wcet_cycles, start);
+	return status;
+}
+
+btn_ao_status_t ioctl_btn_ao(h_btn_t *ao,
+		btn_ao_ioctl_cmd_t command, void *argument)
+{
+	uint32_t start = cycle_counter_get();
+	btn_ao_status_t status = BTN_AO_INVALID_ARG;
+
+	if ((NULL != ao) && (NULL != argument) && (pdTRUE == ao->is_open))
+	{
+		taskENTER_CRITICAL();
+		switch (command)
+		{
+			case BTN_AO_IOCTL_GET_STATE:
+				*(btn_st_t *)argument = ao->btn_sc->state;
+				status = BTN_AO_OK;
+				break;
+			case BTN_AO_IOCTL_GET_PIN_STATE:
+				*(GPIO_PinState *)argument = ao->btn->pin_state;
+				status = BTN_AO_OK;
+				break;
+			case BTN_AO_IOCTL_GET_ELAPSED_TIME:
+				*(TickType_t *)argument = ao->btn_sc->tick;
+				status = BTN_AO_OK;
+				break;
+			default:
+				break;
+		}
+		taskEXIT_CRITICAL();
+	}
+	else if ((NULL != ao) && (pdFALSE == ao->is_open))
+	{
+		status = BTN_AO_NOT_OPEN;
+	}
+	update_wcet(&g_ioctl_btn_ao_wcet_cycles, start);
+	return status;
+}
 
 /********************** external functions definition ************************/
 /* Task thread */
@@ -125,7 +252,14 @@ void task_btn_statechart(h_btn_t *h_btn_)
 				h_btn_->btn_sc->tick_out = h_btn_->btn_sc->tick;
 				h_btn_->btn_sc->tick = ZERO;
 
-				xQueueSend(h_sys_task_q, (void *)&h_btn_->btn_sc->ev_out, (TickType_t)ZERO);
+				LOGGER_INFO("BTN AO->SYS ev=%u time=%lu",
+						(unsigned int)h_btn_->btn_sc->ev_out,
+						(unsigned long)h_btn_->btn_sc->tick_out);
+				btn_ao_status_t status = send_btn_ao(h_btn_,
+						h_btn_->btn_sc->ev_out,
+						h_btn_->btn_sc->tick_out, portMAX_DELAY);
+				LOGGER_INFO("BTN AO<-SYS confirm ev=%u result=%d",
+						(unsigned int)h_btn_->btn_sc->ev_out, (int)status);
 			}
 			else
 			{
@@ -143,7 +277,14 @@ void task_btn_statechart(h_btn_t *h_btn_)
 				h_btn_->btn_sc->tick_out = h_btn_->btn_sc->tick;
 				h_btn_->btn_sc->tick = ZERO;
 
-				xQueueSend(h_sys_task_q, (void *)&h_btn_->btn_sc->ev_out, (TickType_t)ZERO);
+				LOGGER_INFO("BTN AO->SYS ev=%u time=%lu",
+						(unsigned int)h_btn_->btn_sc->ev_out,
+						(unsigned long)h_btn_->btn_sc->tick_out);
+				btn_ao_status_t status = send_btn_ao(h_btn_,
+						h_btn_->btn_sc->ev_out,
+						h_btn_->btn_sc->tick_out, portMAX_DELAY);
+				LOGGER_INFO("BTN AO<-SYS confirm ev=%u result=%d",
+						(unsigned int)h_btn_->btn_sc->ev_out, (int)status);
 			}
 			else
 			{

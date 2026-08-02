@@ -51,9 +51,19 @@ extern "C" {
 
 /********************** external data declaration ****************************/
 extern h_btn_t h_btn[BTN_QTY];
+extern volatile uint32_t g_open_btn_ao_wcet_cycles;
+extern volatile uint32_t g_release_btn_ao_wcet_cycles;
+extern volatile uint32_t g_send_btn_ao_wcet_cycles;
+extern volatile uint32_t g_ioctl_btn_ao_wcet_cycles;
 
 /********************** external functions declaration ***********************/
 extern void task_btn(void *parameters);
+extern btn_ao_status_t open_btn_ao(h_btn_t *ao);
+extern btn_ao_status_t release_btn_ao(h_btn_t *ao);
+extern btn_ao_status_t send_btn_ao(h_btn_t *ao, btn_ev_t event,
+		TickType_t time, TickType_t timeout);
+extern btn_ao_status_t ioctl_btn_ao(h_btn_t *ao,
+		btn_ao_ioctl_cmd_t command, void *argument);
 
 /********************** End of CPP guard *************************************/
 #ifdef __cplusplus

@@ -46,6 +46,7 @@
 /* Application & Tasks includes */
 #include "board.h"
 #include "app.h"
+#include "task_btn.h"
 #include "task_sys_attribute.h"
 
 /********************** macros and definitions *******************************/
@@ -77,6 +78,7 @@ void task_sys(void *parameters)
 	/*  Declare & Initialize Task Function variables */
 	g_task_sys_cnt = G_TASK_SYS_CNT_INI;
 	h_sys_t *p_h_sys = (h_sys_t *)parameters;
+	btn_ao_msg_t message;
 
 	/* Print out: Task Initialized */
 	LOGGER_INFO(" ");
@@ -89,13 +91,27 @@ void task_sys(void *parameters)
 		g_task_sys_cnt++;
 
 		/* Get Events to excite Statechart */
-		if (pdFAIL == xQueueReceive(h_sys_task_q, (void *)&p_h_sys->sys_sc->ev_in, (TickType_t)ZERO))
+		if (pdPASS == xQueueReceive(h_sys_task_q, &message, (TickType_t)ZERO))
+		{
+			p_h_sys->sys_sc->ev_in = (sys_ev_t)message.event;
+			p_h_sys->sys_sc->tick_out = message.time;
+			LOGGER_INFO("SYS received BTN ev=%u time=%lu",
+					(unsigned int)message.event, (unsigned long)message.time);
+		}
+		else
 		{
 			p_h_sys->sys_sc->ev_in = EV_SYS_NONE;
+			message.requester = NULL;
 		}
 
 		/* Run Statechart */
     	task_sys_statechart(p_h_sys);
+
+		if (NULL != message.requester)
+		{
+			xTaskNotifyGive(message.requester);
+			LOGGER_INFO("SYS->BTN AO confirmation sent");
+		}
 
     	/* We want this task to execute every 50 milliseconds. */
 		vTaskDelay(TASK_SYS_DEL_MAX);
