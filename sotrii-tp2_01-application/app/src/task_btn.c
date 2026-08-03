@@ -125,7 +125,12 @@ void task_btn_statechart(h_btn_t *h_btn_)
 				h_btn_->btn_sc->tick_out = h_btn_->btn_sc->tick;
 				h_btn_->btn_sc->tick = ZERO;
 
-				xQueueSend(h_sys_task_q, (void *)&h_btn_->btn_sc->ev_out, (TickType_t)ZERO);
+				BaseType_t ret = xQueueSend(h_sys_task_q,
+						(void *)&h_btn_->btn_sc->ev_out, (TickType_t)ZERO);
+				LOGGER_INFO("BTN->SYS send ev=%u tick=%lu result=%s",
+						(unsigned int)h_btn_->btn_sc->ev_out,
+						(unsigned long)h_btn_->btn_sc->tick_out,
+						(pdPASS == ret) ? "OK" : "FULL");
 			}
 			else
 			{
@@ -143,7 +148,12 @@ void task_btn_statechart(h_btn_t *h_btn_)
 				h_btn_->btn_sc->tick_out = h_btn_->btn_sc->tick;
 				h_btn_->btn_sc->tick = ZERO;
 
-				xQueueSend(h_sys_task_q, (void *)&h_btn_->btn_sc->ev_out, (TickType_t)ZERO);
+				BaseType_t ret = xQueueSend(h_sys_task_q,
+						(void *)&h_btn_->btn_sc->ev_out, (TickType_t)ZERO);
+				LOGGER_INFO("BTN->SYS send ev=%u tick=%lu result=%s",
+						(unsigned int)h_btn_->btn_sc->ev_out,
+						(unsigned long)h_btn_->btn_sc->tick_out,
+						(pdPASS == ret) ? "OK" : "FULL");
 			}
 			else
 			{

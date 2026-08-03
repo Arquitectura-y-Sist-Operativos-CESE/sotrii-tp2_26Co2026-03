@@ -65,7 +65,7 @@
 #define QUEUE_ITEM_SIZE_    (sizeof(sys_ev_t))
 
 #define QUEUE_LENGTH__		(1)
-#define QUEUE_ITEM_SIZE__	(sizeof(led_ev_t))
+#define QUEUE_ITEM_SIZE__	(sizeof(led_ao_msg_t))
 
 /********************** internal data declaration ****************************/
 
@@ -127,6 +127,8 @@ void app_init(void)
 	configASSERT(NULL != h_led_task_q);
 	vQueueAddToRegistry(h_led_task_q, "Queue SYS-> LED");
 
+	h_led[LED_A].ao_queue = h_led_task_q;
+
 	/* The semaphore is created in the 'empty' state, meaning the semaphore
 	 * must first be given using the xSemaphoreGive() API function before it can
 	 * subsequently be taken (obtained) using the xSemaphoreTake() function */
@@ -156,16 +158,19 @@ void app_init(void)
     /* Check the thread was created successfully. */
     configASSERT(pdPASS == ret);
 
-    /* Task LED thread at priority 1 */
-	ret = xTaskCreate(task_led,							/* Pointer to the function thats implement the task. */
-					  "Task Led     ",					/* Text name for the task. This is to facilitate debugging only. */
-					  (configMINIMAL_STACK_SIZE),		/* Stack depth in words. */
-					  (void *)&h_led,					/* We are using the task parameter. */
-					  (tskIDLE_PRIORITY + 1ul),			/* This task will run at priority 1. */
-					  &h_task_led);						/* We are using a variable as task handle. */
+	configASSERT(LED_AO_OK == open_led_ao(&h_led[LED_A]));
 
-    /* Check the thread was created successfully. */
-    configASSERT(pdPASS == ret);
+	/* Task LED thread at priority 1 */
+	ret = xTaskCreate(task_led,						/* Pointer to the function thats implement the task. */
+				  "Task Led     ",					/* Text name for the task. This is to facilitate debugging only. */
+				  (configMINIMAL_STACK_SIZE),		/* Stack depth in words. */
+				  (void *)&h_led[LED_A],			/* We are using the task parameter. */
+				  (tskIDLE_PRIORITY + 1ul),			/* This task will run at priority 1. */
+				  &h_task_led);					    /* We are using a variable as task handle. */
+
+	/* Check the thread was created successfully and associate it with the AO. */
+	configASSERT(pdPASS == ret);
+	h_led[LED_A].ao_task = h_task_led;
 
     /* Task System thread at priority 1 */
     ret = xTaskCreate(task_sys,							/* Pointer to the function thats implement the task. */
