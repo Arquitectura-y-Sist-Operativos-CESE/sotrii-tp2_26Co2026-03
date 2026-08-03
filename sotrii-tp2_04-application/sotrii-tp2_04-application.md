@@ -55,3 +55,8 @@ medición.
 Los tiempos de las interfaces `send` incluyen la espera de la confirmación de
 la tarea gatekeeper correspondiente, debido al patrón síncrono.
 
+---
+
+## Video de demostración
+
+[Ver video de demostración de TP2-04](https://drive.google.com/drive/folders/18dZttU4McuHD93YmjPM3GudOwU0iCYO1)
