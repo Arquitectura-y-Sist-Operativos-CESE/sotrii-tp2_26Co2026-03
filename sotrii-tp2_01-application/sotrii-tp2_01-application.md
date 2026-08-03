@@ -121,3 +121,42 @@ El archivo `app.c` actúa como el punto de entrada para la configuración del fi
 | **1ª Presión del Botón** | Transiciona a `ST_SYS_ACTIVE_0` | `EV_SYS_ON` | Transiciona a `ST_LED_ON` (Encendido Fijo) |
 | **2ª Presión del Botón** | Transiciona a `ST_SYS_ACTIVE_1` | `EV_SYS_BLINK` | Transiciona a `ST_LED_BLINK` (Parpadeo a 500 ms) |
 | **3ª Presión del Botón** | Regresa a `ST_SYS_IDLE` | `EV_SYS_OFF` | Regresa a `ST_LED_OFF` (LED Apagado) |
+
+---
+
+## 6. Medición de WCET de las funciones de interfaz
+
+Los tiempos de ejecución se midieron con el contador de ciclos DWT y se
+observaron desde el depurador de STM32CubeIDE. Para convertir los ciclos de
+clock a microsegundos se utilizó la siguiente relación:
+
+```text
+Tiempo [µs] = ciclos de clock / 16
+```
+
+![Medición de WCET de las funciones del Active Object LED](Doc/image.png)
+
+### 6.1. Resultados observados
+
+| Función de interfaz | Variable observada | Ciclos de clock | Tiempo [µs] |
+| :--- | :--- | ---: | ---: |
+| `open_led_ao()` | `g_open_led_ao_wcet_cycles` | 64 | 4,000 |
+| `send_led_ao()` | `g_send_led_ao_wcet_cycles` | 22842 | 1427,625 |
+| `release_led_ao()` | `g_release_led_ao_wcet_cycles` | No ejecutada | No medido |
+| `ioctl_led_ao()` | `g_ioctl_led_ao_wcet_cycles` | No ejecutada | No medido |
+
+Los cálculos correspondientes a los valores válidos de la captura son:
+
+```text
+open_led_ao():  64 / 16 = 4 µs
+send_led_ao():  22842 / 16 = 1427,625 µs
+```
+
+Las funciones `release_led_ao()` e `ioctl_led_ao()` no son llamadas durante el
+flujo normal de esta aplicación. Por ese motivo no se ejecutó su
+instrumentación y no se obtuvo una medición de WCET. Para medirlas es
+necesario invocar explícitamente ambas interfaces durante una prueba en placa.
+
+El valor de `send_led_ao()` incluye la espera hasta que la tarea gatekeeper
+procesa el evento y envía la confirmación, ya que la interfaz implementada es
+síncrona.
