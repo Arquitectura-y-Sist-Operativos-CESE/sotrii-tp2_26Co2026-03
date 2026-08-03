@@ -55,6 +55,7 @@
 #include "task_sys.h"
 #include "task_led_attribute.h"
 #include "task_led.h"
+#include "ao_led.h"
 
 /********************** macros and definitions *******************************/
 #define G_APP_TICK_CNT_INI				0ul
@@ -68,7 +69,7 @@
 #define QUEUE_ITEM_SIZE__	(sizeof(led_ev_t))
 
 /********************** internal data declaration ****************************/
-
+ao_led_t ao_led_1;
 /********************** internal functions declaration ***********************/
 
 /********************** internal data definition *****************************/
@@ -131,6 +132,15 @@ void app_init(void)
 	 * must first be given using the xSemaphoreGive() API function before it can
 	 * subsequently be taken (obtained) using the xSemaphoreTake() function */
 
+    /* Inicializo el Active Object del LED de la placa */
+    open_led_ao(&ao_led_1,
+                1,
+                LD2_GPIO_Port,
+                LD2_Pin,
+                10,
+                tskIDLE_PRIORITY + 2);
+
+
 	/* Add threads, ... */
     BaseType_t ret;
 
@@ -157,15 +167,15 @@ void app_init(void)
     configASSERT(pdPASS == ret);
 
     /* Task LED thread at priority 1 */
-	ret = xTaskCreate(task_led,							/* Pointer to the function thats implement the task. */
-					  "Task Led     ",					/* Text name for the task. This is to facilitate debugging only. */
-					  (configMINIMAL_STACK_SIZE),		/* Stack depth in words. */
-					  (void *)&h_led,					/* We are using the task parameter. */
-					  (tskIDLE_PRIORITY + 1ul),			/* This task will run at priority 1. */
-					  &h_task_led);						/* We are using a variable as task handle. */
+//	ret = xTaskCreate(task_led,							/* Pointer to the function thats implement the task. */
+//					  "Task Led     ",					/* Text name for the task. This is to facilitate debugging only. */
+//					  (configMINIMAL_STACK_SIZE),		/* Stack depth in words. */
+//					  (void *)&h_led,					/* We are using the task parameter. */
+//					  (tskIDLE_PRIORITY + 1ul),			/* This task will run at priority 1. */
+//					  &h_task_led);						/* We are using a variable as task handle. */
 
     /* Check the thread was created successfully. */
-    configASSERT(pdPASS == ret);
+//    configASSERT(pdPASS == ret);
 
     /* Task System thread at priority 1 */
     ret = xTaskCreate(task_sys,							/* Pointer to the function thats implement the task. */
@@ -188,6 +198,35 @@ void app_init(void)
 
     /* Check the thread was created successfully. */
     configASSERT(pdPASS == ret);
+
+    /* Task Button thread at priority 1 */
+       ret = xTaskCreate(task_sys,
+    		   	   	   	  "task_sys",
+						  configMINIMAL_STACK_SIZE,
+						  &h_sys,
+						  tskIDLE_PRIORITY + 1,
+						  NULL);
+    /* Check the thread was created successfully. */
+       configASSERT(pdPASS == ret);
+
+
+    /* Task Button thread at priority 1 */
+        ret =xTaskCreate(task_btn,
+        		"task_btn",
+				configMINIMAL_STACK_SIZE,
+				&h_btn[0],
+				tskIDLE_PRIORITY + 1,
+				NULL);
+	/* Check the thread was created successfully. */
+	   configASSERT(pdPASS == ret);
+
+
+
+
+
+
+
+
 
     /* Total amount of heap space that remains unallocated. Is also available
      * with xFreeBytesRemaining variable for heap management schemes 2 to 5.

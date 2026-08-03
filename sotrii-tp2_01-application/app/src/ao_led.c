@@ -53,11 +53,11 @@ BaseType_t open_led_ao(ao_led_t *p_ao, uint8_t id, GPIO_TypeDef *port, uint16_t 
 BaseType_t ioctl_led_ao(ao_led_t *p_ao, ao_led_cmd_t cmd)
 {
     /* Medición de WCET usando DWT */
-    uint32_t start_cycles = dwt_get_cycles();
+    uint32_t start_cycles = cycle_counter_get();
 
     BaseType_t result = xQueueSend(p_ao->ao_queue, &cmd, 0);
 
-    uint32_t elapsed_cycles = dwt_get_cycles() - start_cycles;
+    uint32_t elapsed_cycles = cycle_counter_get() - start_cycles;
     LOGGER_INFO("ioctl_led_ao WCET: %lu ciclos de reloj", elapsed_cycles);
 
     return result;

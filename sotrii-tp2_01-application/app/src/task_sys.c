@@ -47,6 +47,9 @@
 #include "board.h"
 #include "app.h"
 #include "task_sys_attribute.h"
+#include "task_sys.h"
+#include "ao_led.h"
+
 
 /********************** macros and definitions *******************************/
 #define G_TASK_SYS_CNT_INI	0ul
@@ -69,6 +72,8 @@ void task_sys_statechart(h_sys_t *h_sys_);
 uint32_t g_task_sys_cnt;
 
 h_sys_t h_sys = {&sys_sc};
+
+extern ao_led_t ao_led_1;
 
 /********************** external functions definition ************************/
 /* Task thread */
@@ -102,6 +107,7 @@ void task_sys(void *parameters)
 	}
 }
 
+/*
 void task_sys_statechart(h_sys_t *h_sys_)
 {
 	switch (h_sys_->sys_sc->state)
@@ -160,5 +166,61 @@ void task_sys_statechart(h_sys_t *h_sys_)
 			break;
 	}
 }
+*/
+
+void task_sys_statechart(h_sys_t *h_sys_)
+{
+    switch (h_sys_->sys_sc->state)
+    {
+        case ST_SYS_IDLE:
+
+            if (EV_SYS_ON == h_sys_->sys_sc->ev_in)
+            {
+                h_sys_->sys_sc->state = ST_SYS_ACTIVE_0;
+                h_sys_->sys_sc->tick = ZERO;
+
+                /* Reemplaza xQueueSend(h_led_task_q, ...) por: */
+                ioctl_led_ao(&ao_led_1, AO_LED_CMD_ON);
+            }
+            else
+            {
+                h_sys_->sys_sc->tick += DEL_SYS_MIN;
+            }
+            break;
+
+        case ST_SYS_ACTIVE_0:
+
+            if (EV_SYS_ON == h_sys_->sys_sc->ev_in)
+            {
+                h_sys_->sys_sc->state = ST_SYS_ACTIVE_1;
+                h_sys_->sys_sc->tick = ZERO;
+
+                /* Reemplaza xQueueSend(h_led_task_q, ...) por: */
+                ioctl_led_ao(&ao_led_1, AO_LED_CMD_TOGGLE);
+            }
+            else
+            {
+                h_sys_->sys_sc->tick += DEL_SYS_MIN;
+            }
+            break;
+
+        case ST_SYS_ACTIVE_1:
+
+            if (EV_SYS_ON == h_sys_->sys_sc->ev_in)
+            {
+                h_sys_->sys_sc->state = ST_SYS_IDLE;
+                h_sys_->sys_sc->tick = ZERO;
+
+                /* Reemplaza xQueueSend(h_led_task_q, ...) por: */
+                ioctl_led_ao(&ao_led_1, AO_LED_CMD_OFF);
+            }
+            else
+            {
+                h_sys_->sys_sc->tick += DEL_SYS_MIN;
+            }
+            break;
+    }
+}
+
 
 /********************** end of file ******************************************/
