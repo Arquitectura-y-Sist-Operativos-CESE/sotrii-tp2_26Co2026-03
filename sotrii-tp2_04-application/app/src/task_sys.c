@@ -127,7 +127,7 @@ static void start_operation(h_sys_t *ao,btn_id_t id)
 	(void)send_led_ao(&h_led[LED_A],(BTN_A==id)?EV_LED_BLINK:EV_LED_ON,portMAX_DELAY);
 	(void)send_led_ao(&h_led[LED_B],(BTN_B==id)?EV_LED_BLINK:EV_LED_ON,portMAX_DELAY);
 	(void)send_led_ao(&h_led[LED_C],EV_LED_ON,portMAX_DELAY);
-	LOGGER_INFO("SYS start BTN%u operation=%lu ms",(unsigned)id,
+	LOGGER_INFO("SYS start BTN%c operation=%lu ms",(char)('A'+id),
 			(unsigned long)ao->operation_remaining);
 }
 
@@ -154,7 +154,7 @@ void task_sys(void *parameters)
 		/* Get Events to excite Statechart */
 		if (pdPASS == xQueueReceive(p_h_sys->ao_queue,&message,(TickType_t)ZERO))
 		{
-			LOGGER_INFO("SYS recv BTN%u ev=%u time=%lu",(unsigned)message.button_id,
+			LOGGER_INFO("SYS recv BTN%c ev=%u time=%lu",(char)('A'+message.button_id),
 					(unsigned)message.event,(unsigned long)message.time);
 			if(EV_BTN_UP==message.event)
 			{

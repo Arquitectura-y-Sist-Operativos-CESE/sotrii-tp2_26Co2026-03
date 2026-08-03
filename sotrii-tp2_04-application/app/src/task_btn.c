@@ -191,7 +191,7 @@ void task_btn_statechart(h_btn_t *h_btn_)
 				h_btn_->btn_sc->tick_out = h_btn_->btn_sc->tick;
 				h_btn_->btn_sc->tick = ZERO;
 
-				LOGGER_INFO("BTN%u->SYS ev=%u time=%lu", (unsigned)h_btn_->ao_id,
+				LOGGER_INFO("BTN%c->SYS ev=%u time=%lu", (char)('A' + h_btn_->ao_id),
 						(unsigned)h_btn_->btn_sc->ev_out, (unsigned long)h_btn_->btn_sc->tick_out);
 				(void)send_btn_ao(h_btn_,h_btn_->btn_sc->ev_out,h_btn_->btn_sc->tick_out,portMAX_DELAY);
 			}
@@ -211,7 +211,7 @@ void task_btn_statechart(h_btn_t *h_btn_)
 				h_btn_->btn_sc->tick_out = h_btn_->btn_sc->tick;
 				h_btn_->btn_sc->tick = ZERO;
 
-				LOGGER_INFO("BTN%u->SYS ev=%u time=%lu", (unsigned)h_btn_->ao_id,
+				LOGGER_INFO("BTN%c->SYS ev=%u time=%lu", (char)('A' + h_btn_->ao_id),
 						(unsigned)h_btn_->btn_sc->ev_out, (unsigned long)h_btn_->btn_sc->tick_out);
 				(void)send_btn_ao(h_btn_,h_btn_->btn_sc->ev_out,h_btn_->btn_sc->tick_out,portMAX_DELAY);
 			}

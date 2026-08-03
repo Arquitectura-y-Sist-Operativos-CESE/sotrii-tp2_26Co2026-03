@@ -141,7 +141,7 @@ void task_led(void *parameters)
 		if (pdPASS == xQueueReceive(p_h_led->ao_queue,&message,TASK_LED_DEL_MAX))
 		{
 			p_h_led->led_sc->ev_in=message.event;
-			LOGGER_INFO("LED%u recv ev=%u",(unsigned)p_h_led->ao_id,(unsigned)message.event);
+			LOGGER_INFO("LED%c recv ev=%u",(char)('A'+p_h_led->ao_id),(unsigned)message.event);
 		}
 		else
 		{
