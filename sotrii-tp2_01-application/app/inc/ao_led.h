@@ -1,70 +1,29 @@
-#ifndef AO_LED_H
-#define AO_LED_H
+#ifndef AO_LED_H_
+#define AO_LED_H_
 
 #include "main.h"
-#include "FreeRTOS.h"
-#include "task.h"
-#include "queue.h"
+#include "cmsis_os.h"
 
-/* -------------------------------------------------------------------------
- * Enumeraciones (Prefijo e)
- * ------------------------------------------------------------------------- */
-typedef enum eAO_LED_ID
-{
-    eAO_LED_ID_1 = 0,
-    eAO_LED_ID_2,
-    eAO_LED_ID_3,
-    eAO_LED_ID_MAX
-} eAO_ID_t;
+/* Enumeración de comandos */
+typedef enum {
+    AO_LED_CMD_OFF = 0,
+    AO_LED_CMD_ON,
+    AO_LED_CMD_TOGGLE
+} ao_led_cmd_t;
 
-typedef enum eAO_LED_CMD
-{
-    eAO_LED_CMD_NONE = 0,
-    eAO_LED_CMD_ON,
-    eAO_LED_CMD_OFF,
-    eAO_LED_CMD_TOGGLE,
-    eAO_LED_CMD_SET_PERIOD
-} eAO_LED_CMD_t;
+/* Estrutura del Active Object según consigna */
+typedef struct {
+    uint8_t        ao_id;
+    GPIO_TypeDef*  gpio_port;
+    uint16_t       gpio_pin;
+    QueueHandle_t  ao_queue;
+    TaskHandle_t   task_handle;
+} ao_led_t;
 
-/* -------------------------------------------------------------------------
- * Estructuras de Datos (Prefijo x)
- * ------------------------------------------------------------------------- */
-typedef struct xAO_LED_MSG
-{
-    eAO_LED_CMD_t eCmd;            /* e: Enum */
-    uint32_t ulParam;              /* ul: Unsigned Long / uint32_t */
-    TaskHandle_t xRequester;       /* x: FreeRTOS Handle */
-} xAO_LED_MSG_t;
+/* Funciones de Interfaz exigidas en Paso 06 */
+BaseType_t open_led_ao(ao_led_t *p_ao, uint8_t id, GPIO_TypeDef *port, uint16_t pin, UBaseType_t queue_len, UBaseType_t priority);
+BaseType_t release_led_ao(ao_led_t *p_ao);
+BaseType_t send_led_ao(ao_led_t *p_ao, ao_led_cmd_t cmd);
+BaseType_t ioctl_led_ao(ao_led_t *p_ao, ao_led_cmd_t cmd);
 
-typedef struct xAO_LED
-{
-    eAO_ID_t eAOId;                /* e: Enum */
-    GPIO_TypeDef *pxPort;          /* px: Pointer to Struct */
-    uint16_t usPin;                /* us: Unsigned Short */
-    QueueHandle_t xAOQueue;        /* x: FreeRTOS Queue Handle */
-    TaskHandle_t xTaskHandle;      /* x: FreeRTOS Task Handle */
-    uint32_t ulBlinkPeriodMs;      /* ul: Unsigned Long */
-    BaseType_t xIsOpen;            /* x: BaseType_t / Boolean */
-} xAO_LED_t;
-
-/* -------------------------------------------------------------------------
- * Prototipos de la API Pública (Prefijo x para retorno BaseType_t)
- * ------------------------------------------------------------------------- */
-BaseType_t xAOLEDOpen( xAO_LED_t * const pxAO,
-                       const eAO_ID_t eId,
-                       GPIO_TypeDef * const pxPort,
-                       const uint16_t usPin,
-                       const UBaseType_t uxQueueLength,
-                       const UBaseType_t uxTaskPriority );
-
-BaseType_t xAOLEDRelease( xAO_LED_t * const pxAO );
-
-BaseType_t xAOLEDSend( xAO_LED_t * const pxAO,
-                       const xAO_LED_MSG_t * const pxMsg,
-                       const TickType_t xTicksToWait );
-
-BaseType_t xAOLEDIoctl( xAO_LED_t * const pxAO,
-                        const eAO_LED_CMD_t eCmd,
-                        const uint32_t ulParam );
-
-#endif /* AO_LED_H */
+#endif /* AO_LED_H_ */
